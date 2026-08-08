@@ -1294,7 +1294,12 @@ def create_app(args):
 
             ASCIIColors.green("\nServer is ready to accept connections! 🚀\n")
 
-            yield
+            mcp_runtime = getattr(app.state, "mcp_runtime", None)
+            if mcp_runtime is None:
+                yield
+            else:
+                async with mcp_runtime.lifespan():
+                    yield
 
         finally:
             await workspace_manager.finalize_non_default_contexts()
@@ -2146,6 +2151,32 @@ def create_app(args):
     app.state.workspace_manager = workspace_manager
     workspace_rag = workspace_manager.rag_proxy()
     workspace_doc_manager = workspace_manager.document_manager_proxy()
+
+    # Optional read-only MCP facade.  It is mounted only when explicitly
+    # enabled so existing HTTP deployments keep the same surface by default.
+    if os.getenv("LIGHTRAG_MCP_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        from lightrag.mcp.retrieval import (
+            RetrievalMcpSettings,
+            create_retrieval_mcp_app,
+        )
+
+        mcp_settings = RetrievalMcpSettings.from_env(upstream_api_key=api_key)
+        mcp_runtime = create_retrieval_mcp_app(
+            workspace_rag,
+            workspace_manager,
+            upstream_api_key=api_key,
+            settings=mcp_settings,
+        )
+        app.state.mcp_runtime = mcp_runtime
+        app.mount(
+            mcp_settings.path,
+            mcp_runtime,
+        )
 
     # Add routes
     # root_path is set on the app for reverse proxy support;
