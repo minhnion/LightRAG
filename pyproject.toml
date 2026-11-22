@@ -91,6 +91,8 @@ api = [
     "pytz",
     "uvicorn",
     "gunicorn",
+    # Streamable HTTP support without conflicting with the offline zhipuai extra.
+    "mcp>=1.19,<1.20",
     # Document processing dependencies (required for API document upload functionality)
     "openpyxl>=3.0.0,<4.0.0",      # XLSX processing
     "pycryptodome>=3.0.0,<4.0.0",  # PDF encryption support
